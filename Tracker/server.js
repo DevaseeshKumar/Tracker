@@ -34,20 +34,12 @@ app.post("/track", async (req, res) => {
 
     // Replace localhost IP for testing
     if (ip === "::1" || ip === "127.0.0.1") {
-      ip = "8.8.8.8";
+      ip = "8.8.8.8"; 
     }
 
     const parser = new UAParser(req.body.userAgent);
     const browser = parser.getBrowser().name + " " + parser.getBrowser().version;
     const deviceType = parser.getDevice().type || "Desktop";
-
-    // Get approximate lat/lon from IP
-    const geo = await axios
-      .get(`https://ipapi.co/${ip}/json/`)
-      .catch(() => ({ data: {} }));
-
-    const latitude = geo?.data?.latitude || null;
-    const longitude = geo?.data?.longitude || null;
 
     const entry = new Visitor({
       ip,
@@ -55,20 +47,26 @@ app.post("/track", async (req, res) => {
       device: deviceType,
       page: req.body.page,
       userAgent: req.body.userAgent,
-      isNewVisit: req.body.isNewVisit,
-      latitude,
-      longitude,
+      isNewVisit: req.body.isNewVisit
     });
 
     await entry.save();
     res.json({ success: true });
-    console.log("Tracked visit from IP:", ip);
+
+    console.log("Tracked visit:", {
+      ip,
+      browser,
+      device: deviceType,
+      page: req.body.page,
+      isNewVisit: req.body.isNewVisit
+    });
 
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 // GET ALL VISITS
 app.get("/api/visits", async (req, res) => {
