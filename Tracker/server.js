@@ -32,14 +32,27 @@ app.post("/track", async (req, res) => {
   try {
     let ip = req.headers["x-forwarded-for"]?.split(",")[0] || req.ip;
 
-    // Replace localhost IP for testing
     if (ip === "::1" || ip === "127.0.0.1") {
-      ip = "8.8.8.8"; 
+      ip = "8.8.8.8";
     }
 
     const parser = new UAParser(req.body.userAgent);
     const browser = parser.getBrowser().name + " " + parser.getBrowser().version;
-    const deviceType = parser.getDevice().type || "Desktop";
+
+    // -------- DEVICE FIX --------
+    let deviceType = parser.getDevice().type;
+    const ua = req.body.userAgent.toLowerCase();
+
+    if (!deviceType) {
+      if (/mobile|iphone|ipod|android.*mobile|windows phone/.test(ua)) {
+        deviceType = "Mobile";
+      } else if (/tablet|ipad|android(?!.*mobile)/.test(ua)) {
+        deviceType = "Tablet";
+      } else {
+        deviceType = "Desktop";
+      }
+    }
+    // ----------------------------
 
     const entry = new Visitor({
       ip,
@@ -47,25 +60,18 @@ app.post("/track", async (req, res) => {
       device: deviceType,
       page: req.body.page,
       userAgent: req.body.userAgent,
-      isNewVisit: req.body.isNewVisit
+      isNewVisit: req.body.isNewVisit,
     });
 
     await entry.save();
     res.json({ success: true });
-
-    console.log("Tracked visit:", {
-      ip,
-      browser,
-      device: deviceType,
-      page: req.body.page,
-      isNewVisit: req.body.isNewVisit
-    });
 
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
+
 
 
 // GET ALL VISITS
