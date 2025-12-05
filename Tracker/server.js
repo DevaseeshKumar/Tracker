@@ -32,39 +32,36 @@ app.post("/track", async (req, res) => {
   try {
     let ip = req.headers["x-forwarded-for"]?.split(",")[0] || req.ip;
 
-    if (ip === "::1" || ip === "127.0.0.1") {
-      ip = "8.8.8.8";
-    }
+    // Local testing fallback
+    if (ip === "::1" || ip === "127.0.0.1") ip = "8.8.8.8";
 
-    const parser = new UAParser(req.body.userAgent);
+    const ua = req.body.userAgent;
+    const parser = new UAParser(ua);
+
     const browser = parser.getBrowser().name + " " + parser.getBrowser().version;
 
-    // -------- DEVICE FIX --------
+    // --- IMPROVED MOBILE/TABLET DETECTION ---
     let deviceType = parser.getDevice().type;
-    const ua = req.body.userAgent.toLowerCase();
 
     if (!deviceType) {
-      if (/mobile|iphone|ipod|android.*mobile|windows phone/.test(ua)) {
-        deviceType = "Mobile";
-      } else if (/tablet|ipad|android(?!.*mobile)/.test(ua)) {
-        deviceType = "Tablet";
-      } else {
-        deviceType = "Desktop";
-      }
+      if (/mobile/i.test(ua)) deviceType = "Mobile";
+      else if (/tablet/i.test(ua)) deviceType = "Tablet";
+      else deviceType = "Desktop";
     }
-    // ----------------------------
 
     const entry = new Visitor({
       ip,
       browser,
       device: deviceType,
       page: req.body.page,
-      userAgent: req.body.userAgent,
-      isNewVisit: req.body.isNewVisit,
+      userAgent: ua,
+      isNewVisit: req.body.isNewVisit
     });
 
     await entry.save();
     res.json({ success: true });
+
+    console.log("Tracked:", { ip, browser, deviceType, page: req.body.page });
 
   } catch (err) {
     console.error(err);
